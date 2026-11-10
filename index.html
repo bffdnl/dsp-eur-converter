@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#064c91"><title>Convertitore DSP → Euro · Storico FMI</title><link rel="icon" href="logo.png"><style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#16314f;background:#f2f6fb}*{box-sizing:border-box}body{margin:0}.wrap{max-width:680px;margin:30px auto;padding:0 16px}.card{background:#fff;border:1px solid #dae6f1;border-radius:20px;padding:clamp(18px,5vw,32px);box-shadow:0 10px 38px #143c7011}header{text-align:center}.logo{width:90px;height:90px;object-fit:contain}h1{font-size:clamp(1.5rem,4vw,1.8rem);margin:10px 0 6px}.sub{color:#586c84;line-height:1.55;margin:0 0 20px}label{font-weight:650;display:block;margin:18px 0 8px}input{width:100%;padding:13px;border:1px solid #b6c9dd;border-radius:10px;font-size:1.12rem;color:#133655;background:white}input:focus-visible,button:focus-visible{outline:3px solid #70b5ef;outline-offset:2px}.hint,.status{font-size:.91rem;color:#526982;line-height:1.5}.result{background:#eaf4ff;border-radius:13px;padding:18px;margin:19px 0 10px}.result small{display:block;color:#506a85}.result strong{display:block;font-size:clamp(1.7rem,5vw,2.2rem);color:#064c91;overflow-wrap:anywhere;margin:5px 0}.notice{padding:11px 13px;border-radius:9px;background:#fff5db;border:1px solid #edd68e;color:#745321;line-height:1.4}.error{color:#a22b1e}.ok{color:#116140}.actions{display:flex;flex-wrap:wrap;gap:10px;margin:17px 0}button{border:0;border-radius:10px;background:#07549e;color:white;padding:12px 16px;font-size:.97rem;cursor:pointer}button.secondary{background:#e9f1fa;color:#064c91}button:disabled{opacity:.55;cursor:not-allowed}.data{border-top:1px solid #e6edf6;margin-top:20px;padding-top:9px}.details{font-size:.88rem;line-height:1.6;color:#50657a}a{color:#07549e}footer{font-size:.82rem;color:#65778b;line-height:1.5;margin-top:18px;text-align:center} .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:480px){.grid{grid-template-columns:1fr}}
+</style></head><body><main class="wrap"><section class="card"><header><img src="logo.png" alt="Sigillo FMI" class="logo"><h1>Convertitore DSP → Euro</h1><p class="sub">Conversione dei Diritti Speciali di Prelievo con i tassi del Fondo Monetario Internazionale, anche a una data storica.</p></header>
+<label for="quantity">Importo in DSP (SDR)</label><input id="quantity" inputmode="decimal" autocomplete="off" value="1"><div class="hint">Puoi usare la virgola come separatore decimale.</div>
+<div class="grid"><div><label for="rate-date">Data della conversione</label><input type="date" id="rate-date"></div><div><label>&nbsp;</label><button class="secondary" id="today" type="button">Ultima data disponibile</button></div></div>
+<div class="result" aria-live="polite"><small>Controvalore in euro</small><strong id="result">—</strong><small id="unit-rate">Caricamento dati…</small></div><p id="date-notice" class="notice" hidden></p><p id="status" class="status" role="status">Caricamento archivio…</p>
+<div class="actions"><button id="refresh" type="button">Ricarica i dati</button><button id="copy" class="secondary" type="button">Copia l'importo</button></div>
+<div class="data"><p id="details" class="details"></p><p class="details">Fonte: <a href="https://www.imf.org/external/np/fin/data/rms_sdrv.aspx" target="_blank" rel="noopener noreferrer">SDR Valuation – FMI</a>. Per giorni senza quotazione si usa la rilevazione valida più vicina; a parità di distanza prevale quella precedente. Le date non ancora comprese nell'archivio non vengono stimate.</p></div><footer>Strumento indipendente, non affiliato né approvato dal FMI. Per impieghi ufficiali verificare data e cambio nella fonte originale.</footer></section></main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+let history={}, latest=null, selected=null, archivesLoaded=false;
+const fmt=(n,d=4)=>new Intl.NumberFormat('it-IT',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n);
+const dateIT=s=>s?s.split('-').reverse().join('/'):'';
+function parseNum(t){t=String(t).trim().replace(/\s/g,'');if(!t)return NaN;if(t.includes(','))t=t.replace(/\./g,'').replace(',','.');return Number(t)}
+function validRate(r){return r && r.usd_per_dsp>0.5 && r.usd_per_dsp<3 && r.usd_per_eur>0.3 && r.usd_per_eur<3}
+function isoDate(s){return /^\d{4}-\d{2}-\d{2}$/.test(s||'') && !Number.isNaN(Date.parse(s+'T12:00:00Z'))}
+function nearest(asked){
+ if(!isoDate(asked)) return null;
+ const days=Object.keys(history).sort();
+ if(!days.length) return null;
+ const low=days[0],high=days[days.length-1];
+ if(asked<low && (Date.parse(low)-Date.parse(asked))/86400000>7) return null;
+ if(asked>high && (Date.parse(asked)-Date.parse(high))/86400000>7) return null; // margine di 7 giorni per weekend/festivita, mai anni di distanza
+ let a=0,b=days.length-1;
+ while(a<=b){const m=(a+b)>>1;if(days[m]<asked)a=m+1;else b=m-1;}
+ const candidates=[days[a],days[a-1]].filter(Boolean);
+ candidates.sort((x,y)=>Math.abs(Date.parse(x)-Date.parse(asked))-Math.abs(Date.parse(y)-Date.parse(asked))||x.localeCompare(y));
+ const actual=candidates[0];return {date:actual,rate:history[actual],requested:asked};
+}
+function compute(){
+ const n=parseNum($('quantity').value),asked=$('rate-date').value;
+ selected=nearest(asked);
+ // Tasso corrente disponibile anche se lo storico FMI non e' stato importato.
+ if(!selected&&latest&&asked===latest.valuation_date) selected={date:asked,rate:latest,requested:asked};
+ $('date-notice').hidden=true;
+ if(!selected){$('result').textContent='—';$('unit-rate').textContent='Nessun cambio storico utilizzabile';
+   $('status').textContent=archivesLoaded?'Data fuori dall’intervallo delle rilevazioni disponibili. Seleziona una data tra quelle coperte.':'Storico non ancora importato: puoi utilizzare l’ultima rilevazione, oppure attendere il primo aggiornamento FMI.';
+   $('status').className='status error';$('details').textContent='';return;}
+ const r=selected.rate,delta=Math.abs((Date.parse(selected.date)-Date.parse(asked))/86400000);
+ if(selected.date!==asked){$('date-notice').hidden=false;$('date-notice').textContent=`Per il ${dateIT(asked)} non è presente una quotazione: applicata quella del ${dateIT(selected.date)} (${delta} giorni di differenza).`;}
+ $('status').textContent='Rilevazione FMI utilizzata: '+dateIT(selected.date)+(selected.date===asked?' (data esatta).':'.');$('status').className='status ok';
+ $('details').textContent='USD per DSP: '+fmt(r.usd_per_dsp,6)+' · USD per EUR: '+fmt(r.usd_per_eur,5)+' · Formula: DSP × (USD/DSP ÷ USD/EUR)';
+ if(!Number.isFinite(n)||n<0){$('result').textContent='—';$('unit-rate').textContent='Inserisci un importo valido';return;}
+ const rate=r.usd_per_dsp/r.usd_per_eur;
+ $('result').textContent=new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(n*rate);
+ $('unit-rate').textContent='1 DSP = '+fmt(rate,6)+' €';
+}
+async function load(){
+ $('refresh').disabled=true;$('status').textContent='Caricamento dei dati…';
+ try{
+   const bust='?v='+Date.now();const replies=await Promise.allSettled([
+     fetch('history.json'+bust,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Storico HTTP '+r.status);return r.json()}),
+     fetch('rates.json'+bust,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Ultimo tasso HTTP '+r.status);return r.json()})
+   ]);
+   if(replies[0].status==='fulfilled'){const body=replies[0].value;history={};for(const [d,r] of Object.entries(body.rates||{})){if(isoDate(d)&&validRate(r))history[d]=r;}}
+   if(replies[1].status==='fulfilled'){const r=replies[1].value;if(isoDate(r.valuation_date)&&validRate(r))latest=r;}
+   if(latest)history[latest.valuation_date]=latest;
+   archivesLoaded=Object.keys(history).length>1;
+   if(!Object.keys(history).length)throw Error('Nessun cambio valido disponibile');
+   const newest=Object.keys(history).sort().at(-1);
+   if(!$('rate-date').value || !$('rate-date').dataset.chosen) $('rate-date').value=newest;
+   $('rate-date').max=new Date().toISOString().slice(0,10);
+   compute();
+ }catch(e){selected=null;$('result').textContent='—';$('unit-rate').textContent='Dati non disponibili';$('status').className='status error';$('status').textContent='Impossibile leggere i dati pubblicati ('+e.message+').';}
+ finally{$('refresh').disabled=false;}
+}
+$('quantity').addEventListener('input',compute);
+$('rate-date').addEventListener('change',()=>{$('rate-date').dataset.chosen='1';compute()});
+$('today').addEventListener('click',()=>{const keys=Object.keys(history).sort();if(!keys.length)return;$('rate-date').value=keys.at(-1);$('rate-date').dataset.chosen='1';compute()});
+$('refresh').addEventListener('click',load);
+$('copy').addEventListener('click',async()=>{if(!selected)return;const n=parseNum($('quantity').value);if(!(Number.isFinite(n)&&n>=0))return;try{await navigator.clipboard.writeText((n*selected.rate.usd_per_dsp/selected.rate.usd_per_eur).toFixed(2).replace('.',','));}catch(e){$('status').textContent='Impossibile copiare automaticamente il valore in questo browser.';}});
+load();
+</script></body></html>
