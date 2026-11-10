@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Scarica storico FMI (se disponibile)
-        run: python scripts/update_history.py || echo 'Archivio FMI non aggiornabile; conservati i dati gia presenti'
+        run: python scripts/update_history.py
       - name: Aggiorna tasso corrente (se disponibile)
         run: python scripts/update_rates.py || echo 'Tasso FMI corrente non aggiornabile'
       - name: Salva soltanto i dati verificati
