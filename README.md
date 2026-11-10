@@ -118,5 +118,3 @@ All references to the IMF and its trademarks belong to their respective owners.
 ## 📄 License
 
 The source code is publicly available.
-
-Please refer to the repository's `LICENSE` file, if provided, for the applicable terms of use and redistribution.
