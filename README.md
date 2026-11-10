@@ -1,39 +1,122 @@
-# Convertitore DSP → Euro (storico FMI)
 
-Sito statico per **GitHub Pages**, con scelta di una data storica e conversione DSP/EUR sulla base delle rilevazioni [SDR Valuation FMI](https://www.imf.org/external/np/fin/data/rms_sdrv.aspx).
+# SDR to EUR Converter
 
-## Installazione sul repository `bffdnl/dsp-eur-converter`
+### Special Drawing Rights to Euro Conversion Using Official IMF Exchange Rates
 
-**Caricare il contenuto di questa cartella nella radice del repository**, non lo ZIP né un'ulteriore cartella contenitore. In particolare:
+A free, open-source, web-based tool for converting **Special Drawing Rights (SDR)** into euros (EUR), using exchange rate data published by the **International Monetary Fund (IMF)**.
 
-- `index.html`, `logo.png`, `history.json`, `rates.json`, `README.md`
-- `scripts/update_history.py`, `scripts/update_rates.py`
-- `.github/workflows/deploy.yml`
+Designed for professionals, financial institutions, administrative offices, and anyone requiring accurate, transparent, and easily accessible SDR-to-EUR conversions, including historical exchange rates.
 
-**Il workflow `deploy.yml` deve stare in `.github/workflows/` alla radice del repository.** Se nel repository sono presenti altri workflow per GitHub Pages che distribuiscono contenuti diversi, disabilitarli per evitare conflitti.
+---
 
-Aprire `Settings → Pages → Source: GitHub Actions`. In `Actions` avviare `Pubblica sito e aggiorna storico FMI → Run workflow`. Il sito previsto è https://bffdnl.github.io/dsp-eur-converter/.
+## 🌐 Try the Converter
 
-## Come vengono gestiti i tassi
+**[Launch the SDR to EUR Converter](https://bffdnl.github.io/dsp-eur-converter/)**
 
-- All'avvio della pagina vengono letti i file locali `history.json` e `rates.json` generati dal workflow: il browser del collega non deve collegarsi direttamente al FMI.
-- Lo script `scripts/update_history.py` invia al FMI una richiesta di esportazione TSV dello storico (`__EVENTTARGET=lbnTSV`) e analizza le righe giornaliere con il valore in USD del DSP e il cambio EUR/USD dello stesso giorno. Se la struttura non è riconosciuta o ci sono meno di 20 date valide, **non sovrascrive lo storico**.
-- `scripts/update_rates.py` prova anche a leggere la quotazione più recente dalla pagina giornaliera. Se fallisce, il workflow conserva i dati già presenti.
-- Lo storico inizialmente è **vuoto**: **la funzione storica diventa operativa soltanto dopo che il workflow riesce a scaricare e interpretare lo storico del FMI.** Non sono inseriti tassi storici inventati.
-- La conversione è `importo DSP × (USD per DSP / USD per EUR)`.
-- Se manca la data richiesta, viene usata la quotazione con **minore distanza in giorni** fra quelle presenti. In caso di pari distanza, si preferisce la **data precedente**. La data realmente utilizzata è mostrata in modo esplicito.
-- **Fuori dall'intervallo dell'archivio è ammesso solo uno scarto massimo di 7 giorni** (weekend/festività); il sito non usa un cambio di mesi o anni prima.
-- Le cifre derivano dai valori/arrotondamenti del FMI e potrebbero non coincidere perfettamente con altre tabelle di tassi rappresentativi.
+Access the application directly from your browser on desktop computers, tablets, and smartphones. No installation or registration is required.
 
-## Verifiche consigliate
+---
 
-1. Aprire la scheda `Actions` ed esaminare il log dei passi **Scarica storico FMI** e **Aggiorna tasso corrente**. Un workflow verde significa che il sito è stato distribuito, **non garantisce** che il download FMI sia riuscito.
-2. Aprire `history.json` e verificare che `rates` contenga molte date, non `{}`.
-3. Scegliere una data presente nell'archivio e confrontare la conversione con il FMI.
-4. Provare un sabato o una domenica: il sito deve evidenziare la data effettiva utilizzata.
+## ✨ Features
 
-## Limiti
+- **Instant Conversion:** Convert any SDR amount into euros using official IMF exchange rate data.
+- **Historical Exchange Rates:** Select any date from January 2, 2001, onwards.
+- **Nearest Available Rate:** If no IMF rate is available for the selected date (e.g., weekends or holidays), the converter automatically uses the closest available valuation date.
+- **Automatic Updates:** Exchange rate data is periodically refreshed through GitHub Actions.
+- **Historical Currency Basket Support:** Handles both the four-currency SDR basket used before October 2016 and the five-currency basket introduced with the inclusion of the Chinese renminbi.
+- **Browser-Based Access:** No installation, registration, or additional software required.
+- **Open Source:** The source code is publicly available for transparency, review, and contributions.
 
-Il download in TSV del FMI è un meccanismo web non documentato come API stabile. L'integrazione **non è stata testata dal vivo contro il server FMI in questo ambiente**. Se il FMI cambia il formato dei dati, servirà aggiornare `update_history.py`. Non usare valori non verificati per adempimenti ufficiali.
+---
 
-Il sigillo FMI potrebbe essere soggetto a restrizioni d'uso. Questo strumento non è ufficiale e non implica approvazione del FMI.
+## 📊 Data Source and Methodology
+
+The converter uses SDR valuation data published by the **International Monetary Fund (IMF)**.
+
+**Official data source:** [IMF – SDR Valuation](https://www.imf.org/external/np/fin/data/rms_sdrv.aspx)
+
+The SDR-to-EUR exchange rate is calculated using the SDR value expressed in US dollars and the corresponding US dollar exchange rate of the euro.
+
+### Conversion Formula
+
+```text
+SDR value in EUR = SDR amount × (USD per SDR / USD per EUR)
+```
+
+Where:
+
+- **USD per SDR:** The US dollar value of one Special Drawing Right.
+- **USD per EUR:** The US dollar value of one euro.
+
+Historical conversions use the IMF valuation applicable to the selected date or, when unavailable, the nearest available valuation date.
+
+The application supports historical SDR currency basket changes, including the addition of the Chinese renminbi on October 1, 2016.
+
+---
+
+## 🔄 Automatic Data Updates
+
+Exchange rate data is periodically retrieved from the IMF and processed using Python scripts and **GitHub Actions**.
+
+The automated workflow:
+
+1. Retrieves the latest available SDR valuation data.
+2. Processes historical exchange rates.
+3. Updates the data files used by the converter.
+4. Deploys the updated website through GitHub Pages.
+
+The application automatically selects the nearest available IMF valuation when an exact date is unavailable.
+
+---
+
+## 🛠️ Technologies
+
+- **HTML5** — Application structure
+- **CSS3** — Responsive interface
+- **JavaScript** — Conversion logic
+- **Python** — IMF data retrieval and processing
+- **GitHub Actions** — Automated updates and deployment
+- **GitHub Pages** — Free web hosting
+
+---
+
+## 📅 Historical Data Coverage
+
+Historical SDR-to-EUR conversions are supported from **January 2, 2001**, onwards.
+
+The converter handles two different SDR currency basket configurations:
+
+| Period | SDR Currency Basket |
+|--------|---------------------|
+| Jan 2, 2001 – Sep 30, 2016 | USD, EUR, JPY, GBP |
+| From Oct 1, 2016 | USD, EUR, CNY, JPY, GBP |
+
+When an IMF valuation is unavailable for a selected date, the application uses the nearest available observation and displays the effective valuation date.
+
+---
+
+## ⚠️ Disclaimer
+
+This is an **independent, unofficial project** and is **not affiliated with, endorsed by, sponsored by, or maintained by the International Monetary Fund (IMF)**.
+
+Although the converter uses data published by the IMF, users should independently verify the applicable valuation date and exchange rates against the official source when performing financial, contractual, administrative, or legal calculations.
+
+The software is provided for informational purposes **"as is"**, without any warranty of accuracy, completeness, fitness for a particular purpose, or uninterrupted availability.
+
+All references to the IMF and its trademarks belong to their respective owners.
+
+---
+
+## 🔗 Useful Links
+
+- **[Live Converter](https://bffdnl.github.io/dsp-eur-converter/)**
+- **[GitHub Repository](https://github.com/bffdnl/dsp-eur-converter)**
+- **[Official IMF SDR Valuation Data](https://www.imf.org/external/np/fin/data/rms_sdrv.aspx)**
+
+---
+
+## 📄 License
+
+The source code is publicly available.
+
+Please refer to the repository's `LICENSE` file, if provided, for the applicable terms of use and redistribution.
